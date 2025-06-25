@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu de Labyrinthe</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1a202c; /* Dark background */
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .game-container {
+            background-color: #2d3748; /* Slightly lighter dark background */
+            border-radius: 1rem; /* Rounded corners */
+            padding: 1.5rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5); /* Stronger shadow */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            max-width: 90%; /* Responsive width */
+            width: 100%;
+            position: relative; /* For modal positioning */
+        }
+        canvas {
+            background-color: #edf2f7; /* Light canvas background */
+            border-radius: 0.75rem; /* Rounded corners for canvas */
+            display: block;
+            touch-action: manipulation; /* Allow touch for movement, prevent default scrolling */
+            width: 100%; /* Make canvas responsive */
+            max-width: 600px; /* Max width for larger screens */
+            height: auto; /* Maintain aspect ratio */
+            border: 2px solid #4a5568;
+        }
+        .controls, .messages {
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+            color: #e2e8f0; /* Light text color */
+        }
+        .buttons-container {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap; /* Allow buttons to wrap on small screens */
+            justify-content: center;
+            width: 100%;
+        }
+        .game-button {
+            background-color: #4299e1; /* Blue button */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem; /* Rounded corners */
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Button shadow */
+            border: none;
+            flex-grow: 1; /* Allow buttons to grow */
+            max-width: 200px; /* Max width for individual buttons */
+        }
+        .game-button:hover {
+            background-color: #3182ce; /* Darker blue on hover */
+            transform: translateY(-2px); /* Slight lift effect */
+        }
+        .game-button:active {
+            transform: translateY(0); /* Press down effect */
+        }
+        #messageBox {
+            margin-top: 1rem;
+            font-size: 1.1rem;
+            min-height: 1.5rem; /* Reserve space to prevent layout shifts */
+        }
+        /* Touch controls */
+        .touch-controls {
+            display: grid;
+            grid-template-areas:
+                ". up ."
+                "left . right"
+                ". down .";
+            gap: 10px;
+            margin-top: 1rem;
+            width: 100%;
+            max-width: 300px;
+            justify-items: center;
+        }
+        .touch-button {
+            background-color: #63b3ed;
+            color: white;
+            padding: 1rem;
+            border-radius: 50%; /* Circular buttons */
+            font-size: 1.5rem;
+            font-weight: bold;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        .touch-button:hover {
+            background-color: #4299e1;
+        }
+        .touch-button:active {
+            transform: scale(0.95);
+        }
+        .touch-button.up { grid-area: up; }
+        .touch-button.down { grid-area: down; }
+        .touch-button.left { grid-area: left; }
+        .touch-button.right { grid-area: right; }
+
+        /* Modal specific styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7); /* Dark semi-transparent background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000; /* Above everything else */
+            backdrop-filter: blur(5px); /* Optional: blur effect */
+        }
+        .modal-content {
+            background-color: #2d3748;
+            padding: 2.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 15px 25px rgba(0, 0, 0, 0.6);
+            text-align: center;
+            color: #e2e8f0;
+            max-width: 90%;
+            width: 400px;
+            transform: scale(0.9);
+            opacity: 0;
+            animation: fadeInScale 0.3s ease-out forwards; /* Animation for appearance */
+        }
+
+        @keyframes fadeInScale {
+            from {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .modal-content h2 {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: #48bb78; /* Green for success */
+        }
+        .modal-content p {
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+        .modal-button {
+            background-color: #4299e1;
+            color: white;
+            padding: 0.8rem 2rem;
+            border-radius: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: none;
+            display: inline-block; /* For proper button styling */
+        }
+        .modal-button:hover {
+            background-color: #3182ce;
+            transform: translateY(-2px);
+        }
+        .modal-button:active {
+            transform: translateY(0);
+        }
+
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 1rem;
+            }
+            .game-button {
+                padding: 0.6rem 1rem;
+                font-size: 0.9rem;
+            }
+            .touch-button {
+                width: 50px;
+                height: 50px;
+                font-size: 1.2rem;
+            }
+            .modal-content {
+                padding: 1.5rem;
+            }
+            .modal-content h2 {
+                font-size: 1.5rem;
+            }
+            .modal-content p {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="text-3xl font-bold text-white mb-4">Labyrinthe</h1>
+        <canvas id="mazeCanvas"></canvas>
+
+        <div class="messages">
+            <p id="messageBox" class="text-green-400"></p>
+        </div>
+
+        <div class="buttons-container">
+            <button id="startGameButton" class="game-button">Démarrer le Jeu</button>
+            <button id="newMazeButton" class="game-button">Nouveau Labyrinthe</button>
+        </div>
+
+        <div class="touch-controls hidden sm:grid">
+            <button class="touch-button up" data-direction="up">&#9650;</button>
+            <button class="touch-button down" data-direction="down">&#9660;</button>
+            <button class="touch-button left" data-direction="left">&#9664;</button>
+            <button class="touch-button right" data-direction="right">&#9654;</button>
+        </div>
+    </div>
+
+    <!-- Win Modal -->
+    <div id="winModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>🎉 Félicitations ! 🎉</h2>
+            <p>Vous avez trouvé la sortie du labyrinthe !</p>
+            <button id="googleButton" class="modal-button">Aller sur Google.com</button>
+        </div>
+    </div>
+
+    <script>
+        // Get canvas and context
+        const canvas = document.getElementById('mazeCanvas');
+        const ctx = canvas.getContext('2d');
+        const messageBox = document.getElementById('messageBox');
+        const startGameButton = document.getElementById('startGameButton');
+        const newMazeButton = document.getElementById('newMazeButton');
+        const touchControls = document.querySelector('.touch-controls');
+        const winModal = document.getElementById('winModal');
+        const googleButton = document.getElementById('googleButton');
+
+        // Maze parameters
+        let mazeWidth = 15; // Number of cells wide
+        let mazeHeight = 15; // Number of cells high
+        let cellSize = 30; // Size of each cell in pixels (dynamic, will be adjusted)
+        let maze = [];
+        let player = { x: 0, y: 0 };
+        let end = { x: mazeWidth - 1, y: mazeHeight - 1 }; // End at bottom right
+        let gameStarted = false;
+        let gameWon = false;
+
+        // Resize canvas function
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const containerWidth = container.clientWidth;
+
+            // Calculate cellSize dynamically based on container width
+            // Ensure there's enough space for the maze plus a small border
+            const maxAllowedCellSize = Math.floor((containerWidth - 20) / Math.max(mazeWidth, mazeHeight));
+            // Ensure cellSize is at least 1 to prevent negative or zero radius errors
+            cellSize = Math.min(Math.max(1, maxAllowedCellSize), 40); 
+
+            canvas.width = mazeWidth * cellSize;
+            canvas.height = mazeHeight * cellSize;
+
+            if (gameStarted) {
+                drawMaze(); // Redraw maze after resize
+            }
+        }
+
+        // Cell class for maze generation
+        class Cell {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.walls = {
+                    top: true,
+                    right: true,
+                    bottom: true,
+                    left: true
+                };
+                this.visited = false;
+            }
+        }
+
+        // Function to initialize the maze grid
+        function createGrid(width, height) {
+            const grid = [];
+            for (let y = 0; y < height; y++) {
+                const row = [];
+                for (let x = 0; x < width; x++) {
+                    row.push(new Cell(x, y));
+                }
+                grid.push(row);
+            }
+            return grid;
+        }
+
+        // Recursive Backtracking Algorithm for Maze Generation
+        function generateMaze(startCellX, startCellY) {
+            maze = createGrid(mazeWidth, mazeHeight);
+            const stack = [];
+            let current = maze[startCellY][startCellX];
+            current.visited = true;
+            stack.push(current);
+
+            while (stack.length > 0) {
+                const neighbors = [];
+                const x = current.x;
+                const y = current.y;
+
+                // Check top neighbor
+                if (y > 0 && !maze[y - 1][x].visited) {
+                    neighbors.push(maze[y - 1][x]);
+                }
+                // Check right neighbor
+                if (x < mazeWidth - 1 && !maze[y][x + 1].visited) {
+                    neighbors.push(maze[y][x + 1]);
+                }
+                // Check bottom neighbor
+                if (y < mazeHeight - 1 && !maze[y + 1][x].visited) {
+                    neighbors.push(maze[y + 1][x]);
+                }
+                // Check left neighbor
+                if (x > 0 && !maze[y][x - 1].visited) {
+                    neighbors.push(maze[y][x - 1]);
+                }
+
+                if (neighbors.length > 0) {
+                    const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+
+                    // Remove walls between current and next cell
+                    if (next.y < current.y) { // Next is top
+                        current.walls.top = false;
+                        next.walls.bottom = false;
+                    } else if (next.x > current.x) { // Next is right
+                        current.walls.right = false;
+                        next.walls.left = false;
+                    } else if (next.y > current.y) { // Next is bottom
+                        current.walls.bottom = false;
+                        next.walls.top = false;
+                    } else if (next.x < current.x) { // Next is left
+                        current.walls.left = false;
+                        next.walls.right = false;
+                    }
+
+                    next.visited = true;
+                    stack.push(current);
+                    current = next;
+                } else {
+                    current = stack.pop();
+                }
+            }
+        }
+
+        // Draw the maze
+        function drawMaze() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+
+            for (let y = 0; y < mazeHeight; y++) {
+                for (let x = 0; x < mazeWidth; x++) {
+                    const cell = maze[y][x];
+                    const xPos = cell.x * cellSize;
+                    const yPos = cell.y * cellSize;
+
+                    ctx.strokeStyle = '#4a5568'; // Wall color
+                    ctx.lineWidth = 2;
+
+                    if (cell.walls.top) {
+                        ctx.beginPath();
+                        ctx.moveTo(xPos, yPos);
+                        ctx.lineTo(xPos + cellSize, yPos);
+                        ctx.stroke();
+                    }
+                    if (cell.walls.right) {
+                        ctx.beginPath();
+                        ctx.moveTo(xPos + cellSize, yPos);
+                        ctx.lineTo(xPos + cellSize, yPos + cellSize);
+                        ctx.stroke();
+                    }
+                    if (cell.walls.bottom) {
+                        ctx.beginPath();
+                        ctx.moveTo(xPos + cellSize, yPos + cellSize);
+                        ctx.lineTo(xPos, yPos + cellSize);
+                        ctx.stroke();
+                    }
+                    if (cell.walls.left) {
+                        ctx.beginPath();
+                        ctx.moveTo(xPos, yPos + cellSize);
+                        ctx.lineTo(xPos, yPos + cellSize);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // Draw start and end points
+            ctx.fillStyle = '#48bb78'; // Green for start
+            ctx.beginPath();
+            ctx.arc(player.x * cellSize + cellSize / 2, player.y * cellSize + cellSize / 2, cellSize / 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#e53e3e'; // Red for end
+            ctx.beginPath();
+            ctx.arc(end.x * cellSize + cellSize / 2, end.y * cellSize + cellSize / 2, cellSize / 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw player
+            ctx.fillStyle = '#ecc94b'; // Yellow for player
+            ctx.beginPath();
+            ctx.arc(player.x * cellSize + cellSize / 2, player.y * cellSize + cellSize / 2, cellSize / 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Handle player movement (single step)
+        function movePlayer(dx, dy) {
+            if (!gameStarted || gameWon) return;
+
+            const newX = player.x + dx;
+            const newY = player.y + dy;
+
+            // Check if movement is within bounds
+            if (newX >= 0 && newX < mazeWidth && newY >= 0 && newY < mazeHeight) {
+                const currentCell = maze[player.y][player.x];
+                const targetCell = maze[newY][newX];
+
+                // Check for walls
+                let canMove = false;
+                if (dx === 0 && dy === -1 && !currentCell.walls.top && !targetCell.walls.bottom) { // Up
+                    canMove = true;
+                } else if (dx === 0 && dy === 1 && !currentCell.walls.bottom && !targetCell.walls.top) { // Down
+                    canMove = true;
+                } else if (dx === -1 && dy === 0 && !currentCell.walls.left && !targetCell.walls.right) { // Left
+                    canMove = true;
+                } else if (dx === 1 && dy === 0 && !currentCell.walls.right && !targetCell.walls.left) { // Right
+                    canMove = true;
+                }
+
+                if (canMove) {
+                    player.x = newX;
+                    player.y = newY;
+                    drawMaze(); // Redraw after move
+
+                    if (player.x === end.x && player.y === end.y) {
+                        gameWon = true;
+                        winModal.classList.remove('hidden');
+                        startGameButton.textContent = "Rejouer";
+                    }
+                } else {
+                    displayMessage("Vous ne pouvez pas traverser ce mur!", 'text-red-500');
+                }
+            }
+        }
+
+        // Display messages to the user
+        function displayMessage(message, colorClass) {
+            messageBox.textContent = message;
+            messageBox.className = `text-center ${colorClass}`; // Apply Tailwind color class
+            // Clear message after a short delay
+            setTimeout(() => {
+                messageBox.textContent = '';
+                messageBox.className = '';
+            }, 2000);
+        }
+
+        // Event listener for keyboard input
+        document.addEventListener('keydown', (e) => {
+            if (!gameStarted || gameWon || !winModal.classList.contains('hidden')) { // Disable movement if game not started, won or modal open
+                return;
+            }
+            switch (e.key) {
+                case 'ArrowUp':
+                    e.preventDefault(); // Prevent scrolling
+                    movePlayer(0, -1);
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    movePlayer(0, 1);
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    movePlayer(-1, 0);
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    movePlayer(1, 0);
+                    break;
+            }
+        });
+
+        // Event listener for touch controls (buttons)
+        touchControls.addEventListener('click', (e) => {
+            if (!gameStarted || gameWon || !winModal.classList.contains('hidden')) { // Disable touch controls if game not started, won or modal open
+                return;
+            }
+            const button = e.target.closest('.touch-button');
+            if (button) {
+                const direction = button.dataset.direction;
+                switch (direction) {
+                    case 'up':
+                        movePlayer(0, -1);
+                        break;
+                    case 'down':
+                        movePlayer(0, 1);
+                        break;
+                    case 'left':
+                        movePlayer(-1, 0);
+                        break;
+                    case 'right':
+                        movePlayer(1, 0);
+                        break;
+                }
+            }
+        });
+
+        // Event listener for canvas clicks/taps
+        canvas.addEventListener('click', (e) => {
+            if (!gameStarted || gameWon || !winModal.classList.contains('hidden')) { // Disable clicks if game not started, won or modal open
+                return;
+            }
+
+            // Get click coordinates relative to the canvas
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            // Convert click coordinates to maze cell coordinates
+            const targetCellX = Math.floor(clickX / cellSize);
+            const targetCellY = Math.floor(clickY / cellSize);
+
+            // Ignore clicks outside maze bounds or on current player position
+            if (targetCellX < 0 || targetCellX >= mazeWidth ||
+                targetCellY < 0 || targetCellY >= mazeHeight ||
+                (targetCellX === player.x && targetCellY === player.y)) {
+                return;
+            }
+
+            // Calculate the difference to determine movement direction (dx, dy)
+            const dx = targetCellX - player.x;
+            const dy = targetCellY - player.y;
+
+            // Check if the clicked cell is exactly one step away (adjacent) horizontally or vertically
+            const isAdjacent = (Math.abs(dx) === 1 && dy === 0) || (Math.abs(dy) === 1 && dx === 0);
+
+            if (isAdjacent) {
+                // If adjacent, try to move the player using the existing movePlayer function
+                movePlayer(dx, dy);
+            } else {
+                displayMessage("Cliquez sur une cellule adjacente pour vous déplacer !", 'text-red-500');
+            }
+        });
+
+
+        // Event listener for the Google button in the modal
+        googleButton.addEventListener('click', () => {
+            window.location.href = 'https://www.google.com'; // Redirect to Google
+        });
+
+        // Initialize a new game
+        function initializeGame() {
+            gameStarted = true;
+            gameWon = false;
+            player = { x: 0, y: 0 };
+            generateMaze(0, 0); // Generate maze starting from (0,0)
+            end = { x: mazeWidth - 1, y: mazeHeight - 1 }; // Ensure end is updated if maze size changes
+            resizeCanvas(); // Ensure canvas is sized correctly before drawing
+            drawMaze();
+            displayMessage("Déplacez-vous avec les flèches, les boutons ou en cliquant sur une cellule adjacente !", 'text-blue-400');
+            startGameButton.textContent = "Redémarrer le Jeu";
+            winModal.classList.add('hidden'); // Hide modal if it's visible
+        }
+
+        // Event listeners for buttons
+        startGameButton.addEventListener('click', initializeGame);
+        newMazeButton.addEventListener('click', initializeGame); // Same as start game for now
+
+        // Initial setup
+        window.addEventListener('load', () => {
+            resizeCanvas(); // Set initial canvas size
+            initializeGame(); // Start the first game
+        });
+        window.addEventListener('resize', resizeCanvas);
+
+        // Show touch controls if it's a touch device (simple heuristic)
+        if ('ontouchstart' in window || navigator.maxTouchPoints) {
+            touchControls.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
